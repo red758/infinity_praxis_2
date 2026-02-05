@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Review, ShopperSegment, MerchandisingRecommendation, LearnedDomainContext, CampaignManifest } from "../types";
+import { Review, ShopperSegment, MerchandisingRecommendation, LearnedDomainContext, CampaignManifest, DataSource } from "../types";
 
 export class QuotaError extends Error {
   constructor(message: string) {
@@ -33,9 +33,8 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
       const errorMessage = error?.message?.toLowerCase() || "";
       const status = error?.status || 0;
 
-      // Handle typical Netlify/Production auth failures
       if (status === 401 || errorMessage.includes('api_key_invalid') || errorMessage.includes('401') || errorMessage.includes('unauthorized')) {
-        throw new AuthError("API Authentication Failed: Ensure your key is named exactly API_KEY in Netlify and you have re-deployed.");
+        throw new AuthError("API Authentication Failed: Ensure your key is named exactly API_KEY in Netlify.");
       }
       
       if (status === 404 || errorMessage.includes('model not found') || errorMessage.includes('404')) {
@@ -66,11 +65,9 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
 }
 
 const getAi = () => {
-  // Directly access process.env.API_KEY as per system instruction
   const apiKey = process.env.API_KEY;
   if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    // We throw a clear AuthError to trigger the specialized UI in App.tsx
-    throw new AuthError("ENV_VAR_MISSING: The application requires a variable named exactly 'API_KEY'. Please rename 'GEMINI_API_KEY' if that is what you used.");
+    throw new AuthError("ENV_VAR_MISSING: The application requires a variable named 'API_KEY'.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -79,8 +76,6 @@ const PROBABILISTIC_GUARDRAILS = `
 CORE ANALYTICS RULES:
 1. MANDATORY DATA ANCHOR: DO NOT USE PRE-EXISTING KNOWLEDGE OR MOCK DATA. 
 2. INSIGHTS MUST BE 100% DERIVED FROM THE PROVIDED TELEMETRY STREAM.
-3. IF DATA IS INSUFFICIENT, EXTRAPOLATE LOGICALLY BASED ONLY ON THE PROVIDED VARIABLES.
-4. NO GENERIC MOCK SEGMENTS LIKE "CONSCIOUS CONSUMERS". DEDUCE NEW NAMES FROM DATA.
 `;
 
 export const generateCampaignManifest = async (segment: ShopperSegment, context: LearnedDomainContext | null): Promise<CampaignManifest> => {
@@ -88,13 +83,7 @@ export const generateCampaignManifest = async (segment: ShopperSegment, context:
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `
-      ACT AS A SENIOR GROWTH ENGINEER.
-      CONTEXT: ${context?.domainName || 'General Retail'}.
-      TARGET SEGMENT: ${segment.name}.
-      DATA SIGNALS: ${JSON.stringify(segment.affinityScores)}.
-      
-      TASK: Generate a technical Tactical Activation Manifest.`,
+      contents: `Generate a Tactical Activation Manifest for segment: ${segment.name}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -130,11 +119,7 @@ export const synthesizeDomainDNA = async (dataSample: any[], headers: string[], 
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `You are a Consumer Analytics Engine. 
-      ${PROBABILISTIC_GUARDRAILS}
-      TASK: Synthesize portable "Neural Domain DNA".
-      ANALYZE HEADERS: ${headers.join(', ')}
-      SAMPLE DATA: ${JSON.stringify(dataSample.slice(0, 10))}`,
+      contents: `Synthesize portatble Neural Domain DNA for headers: ${headers.join(', ')}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -173,9 +158,7 @@ export const discoverSegments = async (dataSample: any[], headers: string[], con
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `${PROBABILISTIC_GUARDRAILS}
-      TASK: Perform probabilistic clustering. 
-      TELEMETRY: ${JSON.stringify(dataSample)}`,
+      contents: `Perform probabilistic clustering on telemetry: ${JSON.stringify(dataSample)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -212,7 +195,7 @@ export const discoverSegments = async (dataSample: any[], headers: string[], con
     return results.map((s: any) => {
       const affinityScores: Record<string, number> = {};
       if (Array.isArray(s.affinityScores)) { s.affinityScores.forEach((item: any) => { affinityScores[item.key] = item.value; }); }
-      return { ...s, affinityScores, status: 'Discovery', lastUpdated: new Date().toISOString(), dataSource: 'live' };
+      return { ...s, affinityScores, status: 'Discovery', lastUpdated: new Date().toISOString(), dataSource: 'live' as DataSource };
     }) as ShopperSegment[];
   });
 };
@@ -222,8 +205,7 @@ export const generateMerchandisingRecommendations = async (segments: ShopperSegm
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `${PROBABILISTIC_GUARDRAILS}
-      TASK: Identify 5 merchandising plays.`,
+      contents: `Identify 5 merchandising plays for segments: ${segments.map(s => s.name).join(', ')}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -254,8 +236,7 @@ export const getPersonaDetails = async (segment: ShopperSegment, context: Learne
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `${PROBABILISTIC_GUARDRAILS}
-      Synthesize behavior-inferred patterns for: ${segment.name}.`,
+      contents: `Synthesize backstory and motivation for: ${segment.name}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -273,7 +254,7 @@ export const analyzeFriction = async (segment: ShopperSegment, reviews: Review[]
     const ai = getAi();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Perform high-fidelity friction analysis for segment ${segment.name}.`,
+      contents: `Analyze friction score for segment ${segment.name} based on feedback.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -298,11 +279,22 @@ export const generateContextualReviews = async (segments: ShopperSegment[], cont
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
-            properties: { id: { type: Type.STRING }, rating: { type: Type.NUMBER }, text: { type: Type.STRING }, category: { type: Type.STRING } }
+            properties: { 
+              id: { type: Type.STRING }, 
+              userId: { type: Type.STRING },
+              rating: { type: Type.NUMBER }, 
+              text: { type: Type.STRING }, 
+              category: { type: Type.STRING } 
+            },
+            required: ['id', 'userId', 'rating', 'text', 'category']
           }
         }
       }
     });
-    return (JSON.parse(response.text) as Review[]).map(r => ({ ...r, dataSource: 'live' }));
+    const results = JSON.parse(response.text) as any[];
+    return results.map(r => ({ 
+      ...r, 
+      dataSource: 'live' as DataSource 
+    })) as Review[];
   });
 };
