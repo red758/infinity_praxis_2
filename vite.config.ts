@@ -2,10 +2,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// @ts-ignore
 export default defineConfig({
   plugins: [react()],
   define: {
-    // This injects the Netlify environment variable into your client-side code
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || process.env.GEMINI_API_KEY)
   },
   build: {
