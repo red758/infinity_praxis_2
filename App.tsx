@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Database, Brain, Activity, ChevronLeft, Terminal, Code, Quote, Rocket,
-  Fingerprint, ShieldAlert, Cpu, TrendingUp, Layers, MousePointer2, Box, Command, Search, AlertTriangle, X, ShieldX, Info, Key, ShieldCheck, RefreshCcw, Wifi, WifiOff, ExternalLink, ArrowRight, MousePointer, Github, CheckCircle
+  Fingerprint, ShieldAlert, Cpu, TrendingUp, Layers, MousePointer2, Box, Command, Search, AlertTriangle, X, ShieldX, Info, Key, ShieldCheck, RefreshCcw, Wifi, WifiOff, ExternalLink, ArrowRight, MousePointer, Github, CheckCircle, Minimize2, Maximize2
 } from 'lucide-react';
 import { MOCK_SEGMENTS, MOCK_REVIEWS } from './constants';
 import { ShopperSegment, MerchandisingRecommendation, PerspectiveMode, Review, LearnedDomainContext, CampaignManifest } from './types';
@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [activeManifestSegment, setActiveManifestSegment] = useState<ShopperSegment | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(true);
   const [apiStatus, setApiStatus] = useState<'connected' | 'missing_key' | 'checking'>('checking');
+  const [isTerminalMinimized, setIsTerminalMinimized] = useState(false);
   
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -510,27 +511,50 @@ const App: React.FC = () => {
         )}
       </main>
       
-      {/* PERSISTENT SYSTEM LOGS */}
-      <div className="fixed bottom-6 left-10 z-[3000]">
-         <div className="bg-slate-950/80 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl w-[480px] font-mono text-[9px] group transition-all hover:bg-slate-900">
-            <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
-               <span className="text-indigo-400 font-bold tracking-widest uppercase flex items-center gap-2"><Terminal size={12} /> Live Trace Terminal</span>
-               <div className="flex gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${apiStatus === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-800" />
+      {/* PERSISTENT SYSTEM LOGS - Now with minimize functionality */}
+      <div className={`fixed bottom-6 right-10 z-[3000] transition-all duration-500 ease-in-out ${isTerminalMinimized ? 'w-[180px]' : 'w-[480px]'}`}>
+         <div 
+           onClick={() => isTerminalMinimized && setIsTerminalMinimized(false)}
+           className={`bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-[1.5rem] shadow-3xl font-mono text-[9px] group transition-all hover:bg-slate-900/90 overflow-hidden ${isTerminalMinimized ? 'p-4 cursor-pointer hover:border-indigo-500/50' : 'p-6'}`}
+         >
+            <div className={`flex items-center justify-between border-white/5 ${isTerminalMinimized ? '' : 'mb-4 border-b pb-2'}`}>
+               <span className="text-indigo-400 font-bold tracking-widest uppercase flex items-center gap-2">
+                 <Terminal size={12} /> 
+                 {isTerminalMinimized ? 'Neural Link' : 'Live Trace Terminal'}
+               </span>
+               <div className="flex items-center gap-3">
+                  <div className={`w-1.5 h-1.5 rounded-full ${apiStatus === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse shadow-[0_0_10px_currentColor]`} />
+                  {!isTerminalMinimized ? (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsTerminalMinimized(true); }}
+                      className="p-1 hover:bg-white/10 rounded transition-colors text-slate-500 hover:text-white"
+                    >
+                      <Minimize2 size={12} />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsTerminalMinimized(false); }}
+                      className="p-1 hover:bg-white/10 rounded transition-colors text-indigo-400"
+                    >
+                      <Maximize2 size={12} />
+                    </button>
+                  )}
                </div>
             </div>
-            <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar-mini pr-2">
-               {logs.length === 0 ? (
-                 <div className="text-slate-700 italic">Initializing environmental link...</div>
-               ) : (
-                 logs.map((log, i) => (
-                   <div key={i} className={`leading-tight tracking-tight break-all border-l-2 pl-3 transition-colors ${log.includes('[ERROR]') ? 'text-rose-400 border-rose-500' : log.includes('[SUCCESS]') ? 'text-emerald-400 border-emerald-500' : log.includes('[AUTH]') ? 'text-indigo-400 border-indigo-500' : 'text-slate-500 border-indigo-500/20'}`}>
-                     {log}
-                   </div>
-                 ))
-               )}
-            </div>
+            
+            {!isTerminalMinimized && (
+              <div className="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar-mini pr-2 animate-in fade-in duration-500">
+                 {logs.length === 0 ? (
+                   <div className="text-slate-700 italic">Initializing environmental link...</div>
+                 ) : (
+                   logs.map((log, i) => (
+                     <div key={i} className={`leading-tight tracking-tight break-all border-l-2 pl-3 transition-colors ${log.includes('[ERROR]') ? 'text-rose-400 border-rose-500' : log.includes('[SUCCESS]') ? 'text-emerald-400 border-emerald-500' : log.includes('[AUTH]') ? 'text-indigo-400 border-indigo-500' : 'text-slate-500 border-indigo-500/20'}`}>
+                       {log}
+                     </div>
+                   ))
+                 )}
+              </div>
+            )}
          </div>
       </div>
     </div>
